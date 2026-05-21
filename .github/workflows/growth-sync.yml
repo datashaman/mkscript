@@ -1,0 +1,45 @@
+# Growth sync — attributes PRs/CI/releases back to the mkscript Growth project.
+#
+# Requires two repo settings (see repo Settings → Secrets and variables → Actions):
+#   - GROWTH_MCP_TOKEN secret: a Passport personal access token with the mcp:use scope
+#   - GROWTH_URL variable: this Growth instance URL
+#
+# Name feature branches with a leading "WI-<number>" reference (e.g.
+# WI-20-cli-surface) and growth-sync attributes the pull request to that work
+# item automatically.
+name: Growth sync
+
+on:
+  pull_request:
+    types: [opened, synchronize, closed]
+  # check_run fires only for third-party CI (CircleCI, Buildkite, ...).
+  # GitHub Actions CI is captured by workflow_run below instead.
+  check_run:
+    types: [completed]
+  # EDIT: list your GitHub Actions CI workflow name(s) once CI exists. This
+  # trigger cannot wildcard, and growth-sync runs from the repository default
+  # branch. Remove this block if your CI is not GitHub Actions.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  deployment_status:
+  release:
+    types: [published]
+
+# checks:write   — post the "Growth: work item attribution" check.
+# actions:read   — find and download the "growth-evidence" build artifact.
+# pull-requests:write — post and update the screenshot-gallery comment.
+permissions:
+  contents: read
+  checks: write
+  actions: read
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: datashaman/growth/actions/growth-sync@main
+        with:
+          growth-url: ${{ vars.GROWTH_URL }}
+          growth-token: ${{ secrets.GROWTH_MCP_TOKEN }}
