@@ -19,9 +19,9 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Utilities",
 ]
-# Core (WI-001) is stdlib-only. The provider backend (WI-003), CLI (WI-020),
-# and config (WI-021) will add their own dependencies.
-dependencies = []
+# The shipped backend (WI-003) uses Pydantic-AI; slim + provider extras keeps the
+# install to the providers we ship. CLI (WI-020) and config (WI-021) add theirs.
+dependencies = ["pydantic-ai-slim[anthropic,openai]>=1.0"]
 
 [project.urls]
 Homepage = "https://github.com/datashaman/mkscript"
