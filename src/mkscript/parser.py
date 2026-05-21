@@ -3,8 +3,12 @@
 The contract: a small flat JSON metadata object {language, filename} somewhere in
 the prose, plus exactly one fenced code block holding the verbatim script. This
 module enforces "exactly one block" and applies the fallback chain for language
-and filename. Exhaustive failure-mode behavior and --refine surfacing are hardened
-in WI-016; this is the core the contract requires.
+and filename.
+
+Every failure raises an OutputError carrying the full ``raw`` reply, so the caller
+can show what the model actually said. The single-shot CLI turns that into a
+non-zero exit with the reply shown; under --refine the same error surfaces into
+the loop (WI-018) instead of exiting.
 """
 
 from __future__ import annotations
@@ -16,11 +20,15 @@ from .contract import ScriptArtifact
 
 
 class OutputError(Exception):
-    """Base class for unparseable model output."""
+    """Base class for unparseable model output; carries the full model reply."""
+
+    def __init__(self, message: str, *, raw: str = "") -> None:
+        super().__init__(message)
+        self.raw = raw
 
 
 class NoScriptError(OutputError):
-    """The reply contained no fenced code block (e.g. a refusal or prose only)."""
+    """No usable fenced code block (a refusal, prose only, or an empty block)."""
 
 
 class AmbiguousOutputError(OutputError):
@@ -102,15 +110,17 @@ def parse_output(raw: str, *, default_stem: str = "script") -> ScriptArtifact:
     """
     matches = list(_FENCE_RE.finditer(raw))
     if not matches:
-        raise NoScriptError("model reply contained no fenced code block")
+        raise NoScriptError("model reply contained no fenced code block", raw=raw)
     if len(matches) > 1:
         raise AmbiguousOutputError(
-            f"expected exactly one fenced code block, found {len(matches)}"
+            f"expected exactly one fenced code block, found {len(matches)}", raw=raw
         )
 
     match = matches[0]
     info = match.group(1).strip()
     source = match.group(2)
+    if not source.strip():
+        raise NoScriptError("the single fenced code block was empty", raw=raw)
     prose = raw[: match.start()] + raw[match.end() :]
     metadata = _extract_metadata(prose)
 

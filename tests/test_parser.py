@@ -54,3 +54,24 @@ def test_multiple_blocks_raise():
     raw = "```python\n1\n```\nand also\n```python\n2\n```"
     with pytest.raises(AmbiguousOutputError):
         parse_output(raw)
+
+
+def test_empty_block_raises_no_script():
+    # A fenced block with only whitespace is not a usable script (hardening
+    # beyond the explicit spec; "no usable block" covers it).
+    with pytest.raises(NoScriptError, match="empty"):
+        parse_output("```python\n   \n```")
+
+
+def test_output_error_carries_the_raw_reply():
+    raw = "I won't do that."
+    with pytest.raises(NoScriptError) as exc:
+        parse_output(raw)
+    assert exc.value.raw == raw
+
+
+def test_ambiguous_error_carries_the_raw_reply():
+    raw = "```python\n1\n```\n```python\n2\n```"
+    with pytest.raises(AmbiguousOutputError) as exc:
+        parse_output(raw)
+    assert exc.value.raw == raw
