@@ -17,14 +17,9 @@ from collections.abc import Callable
 from typing import IO
 
 from .backend import Backend, PydanticAIBackend
+from .config import resolve_config
 from .contract import GenerationRequest, ScriptArtifact
 from .pipeline import generate
-
-# Provider/model resolution is WI-021's job; until then the CLI uses a built-in
-# default model id and lets the provider resolve its credential from the
-# environment (api_key=None). WI-021 replaces this body with full precedence
-# (--model flag → env → config file → default) and credential handling.
-DEFAULT_MODEL = "anthropic:claude-sonnet-4-6"
 
 # The seam for WI-018's bounded interactive refine loop. The CLI dispatches here
 # under --refine; the callable is responsible for regenerating from change
@@ -32,9 +27,14 @@ DEFAULT_MODEL = "anthropic:claude-sonnet-4-6"
 RefineLoop = Callable[[GenerationRequest, Backend], None]
 
 
-def resolve_backend() -> Backend:
-    """Construct the backend for a run (WI-021 expands this into config lookup)."""
-    return PydanticAIBackend(DEFAULT_MODEL)
+def resolve_backend(model_flag: str | None = None) -> Backend:
+    """Construct the backend, resolving provider/model and credential by precedence.
+
+    Resolution (and the unconfigured-credential error path) lives in config.py;
+    this seam just turns the settled choice into a concrete backend.
+    """
+    config = resolve_config(model_flag=model_flag)
+    return PydanticAIBackend(config.model_id, api_key=config.api_key)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,6 +47,12 @@ def build_parser() -> argparse.ArgumentParser:
         "definition",
         nargs="?",
         help="the task to compile into a script; read from stdin when omitted",
+    )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        help="provider:model id to use (e.g. anthropic:claude-sonnet-4-6); "
+        "overrides MKSCRIPT_MODEL, the config file, and the built-in default",
     )
     parser.add_argument(
         "--lang",
@@ -147,7 +153,7 @@ def main(
 
     request = _request_from_args(args, stdin)
     if backend is None:
-        backend = resolve_backend()
+        backend = resolve_backend(args.model)
 
     if args.refine:
         loop = refine_loop if refine_loop is not None else _default_refine_loop

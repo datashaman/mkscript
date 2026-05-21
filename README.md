@@ -31,16 +31,27 @@ to produce **exactly one self-contained script** and emits it. mkscript does
 mkscript "describe the task"            # script printed to stdout
 mkscript "..." --out build.sh           # written to a file instead
 echo "describe the task" | mkscript     # definition from stdin
+mkscript "..." --model openai:gpt-4o    # pick the provider:model
 mkscript "..." --lang python            # preferred-language hint
 mkscript "..." --platform linux         # target platform (defaults to host OS)
 mkscript "..." --context-file sample.csv  # optional context (sample data / format)
 mkscript "..." --refine                 # interactive, bounded refine loop
 ```
 
-Configuration (provider/model, credentials) resolves from `--model` flag → env
-var → a config file in the OS-specific config directory (via `platformdirs`) →
-built-in default. The API credential may come from an environment variable or
-that config file.
+Configuration resolves by precedence. The **provider/model** is taken from the
+`--model` flag → `MKSCRIPT_MODEL` → a `model` key in the config file → a built-in
+default. The **API credential** is taken from `MKSCRIPT_API_KEY` → an `api_key`
+key in the config file → the provider-native variable (`ANTHROPIC_API_KEY` /
+`OPENAI_API_KEY`) that Pydantic-AI reads itself. With no credential resolvable,
+mkscript exits non-zero and names the variable to set.
+
+The config file is TOML at `<OS config dir>/mkscript/config.toml` (located via
+[`platformdirs`](https://pypi.org/project/platformdirs/)):
+
+```toml
+model = "anthropic:claude-sonnet-4-6"
+api_key = "sk-..."
+```
 
 ## Stack
 
