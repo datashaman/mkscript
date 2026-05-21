@@ -62,11 +62,50 @@ def build_prompt(request: GenerationRequest) -> str:
         "TASK:",
         request.definition.strip(),
     ]
+    parts += _hint_lines(request)
+    parts += ["", OUTPUT_CONTRACT]
+    return "\n".join(parts)
+
+
+def _hint_lines(request: GenerationRequest) -> list[str]:
+    """The optional language/platform/context lines shared by both prompt builders."""
+    parts: list[str] = []
     if request.language_hint:
         parts += ["", f"PREFERRED LANGUAGE (a hint, not a requirement): {request.language_hint}"]
     if request.platform:
         parts += ["", f"TARGET PLATFORM: {request.platform}"]
     if request.context:
         parts += ["", "CONTEXT (sample data / desired output format):", request.context.strip()]
-    parts += ["", OUTPUT_CONTRACT]
+    return parts
+
+
+def build_refine_prompt(
+    request: GenerationRequest, previous_source: str, change_request: str
+) -> str:
+    """Compose a revision prompt reusing the session's task/hints plus the change.
+
+    The original task and hints are restated, the current script is shown verbatim,
+    and the user's natural-language change request is appended. The same output
+    contract applies, so the reply is parsed identically to a fresh generation.
+    """
+    parts: list[str] = [
+        "Revise the script below to satisfy the change request. Keep it a single, "
+        "self-contained file that still accomplishes the original task.",
+        "",
+        "ORIGINAL TASK:",
+        request.definition.strip(),
+    ]
+    parts += _hint_lines(request)
+    parts += [
+        "",
+        "CURRENT SCRIPT:",
+        "```",
+        previous_source,
+        "```",
+        "",
+        "CHANGE REQUEST:",
+        change_request.strip(),
+        "",
+        OUTPUT_CONTRACT,
+    ]
     return "\n".join(parts)
