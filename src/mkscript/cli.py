@@ -23,6 +23,7 @@ from .config import resolve_config
 from .contract import GenerationRequest, ScriptArtifact
 from .parser import OutputError
 from .pipeline import generate, refine
+from .validate import ValidationResult, validate_script
 
 # The default ceiling on refine rounds, counting every backend call past the
 # initial generation, so a stream of refusals can never loop without bound.
@@ -200,8 +201,27 @@ def main(
         artifact = generate(request, backend)
     except OutputError as exc:
         raise SystemExit(_format_output_error(exc))
+    result = validate_script(artifact)
+    if result.gated:
+        # A failing script is surfaced (with the rejected source) and not emitted.
+        raise SystemExit(_format_validation_failure(artifact, result, stderr))
     _emit(artifact, args.out, stdout)
     return 0
+
+
+def _format_validation_failure(
+    artifact: ScriptArtifact, result: ValidationResult, stderr: IO[str]
+) -> str:
+    """Surface a failed syntax check: show the rejected script, return the message.
+
+    The rejected source goes to stderr so the user's work is not lost; the returned
+    string is the SystemExit message naming the checker and its diagnostics.
+    """
+    _show_script(artifact, stderr)
+    message = f"generated {artifact.language or 'script'} failed its {result.checker} check; not emitting"
+    if result.diagnostics:
+        return f"{message}\n{result.diagnostics}"
+    return message
 
 
 def _format_output_error(exc: OutputError) -> str:
@@ -238,12 +258,19 @@ def _default_refine_loop(session: RefineSession) -> None:
     """
     stderr = session.stderr
     request = session.request
-    artifact = _try_generate(lambda: generate(request, session.backend), stderr)
+
+    def run(call: Callable[[], ScriptArtifact]) -> tuple[ScriptArtifact | None, ValidationResult | None]:
+        """Generate (surfacing failures) and validate the result when there is one."""
+        art = _try_generate(call, stderr)
+        return art, (validate_script(art) if art is not None else None)
+
+    artifact, validation = run(lambda: generate(request, session.backend))
 
     iterations = 0
     while True:
-        if artifact is not None:
+        if artifact is not None and validation is not None:
             _show_script(artifact, stderr)
+            stderr.write(_validation_line(validation) + "\n")
         stderr.write(f"[{iterations}/{session.max_iterations}] refine, :accept, or :quit > ")
         stderr.flush()
         line = session.stdin.readline()
@@ -255,10 +282,20 @@ def _default_refine_loop(session: RefineSession) -> None:
         if command == "" or command.lower() in (":quit", ":q"):
             stderr.write("(exiting without emitting)\n")
             return
-        if command.lower() == ":accept":
+        if command.lower() in (":accept", ":accept!"):
             if artifact is None:
                 stderr.write("nothing to accept yet — the last attempt produced no script.\n")
                 continue
+            override = command.lower() == ":accept!"
+            if validation is not None and validation.gated and not override:
+                # A failing script is not emitted as final; force with :accept!.
+                stderr.write(
+                    f"the current script fails its {validation.checker} check; refine it, "
+                    "or type :accept! to emit it anyway.\n"
+                )
+                continue
+            if validation is not None and validation.gated:
+                stderr.write(f"WARNING: emitting a script that failed its {validation.checker} check.\n")
             session.emit(artifact)
             return
 
@@ -274,12 +311,19 @@ def _default_refine_loop(session: RefineSession) -> None:
             # No script yet (the model refused/failed): treat the line as a
             # course-correction appended to the task context, and try afresh.
             request = dataclasses.replace(request, context=_append_context(request.context, command))
-            artifact = _try_generate(lambda: generate(request, session.backend), stderr)
+            artifact, validation = run(lambda: generate(request, session.backend))
         else:
             current = artifact
-            artifact = _try_generate(
-                lambda: refine(request, current, command, session.backend), stderr
-            )
+            artifact, validation = run(lambda: refine(request, current, command, session.backend))
+
+
+def _validation_line(result: ValidationResult) -> str:
+    """A one-line status for the candidate's syntax check, shown above the prompt."""
+    if result.checker is None:
+        return "(no syntax checker for this language — will emit best-effort on accept)"
+    if result.passed:
+        return f"[ok] passed {result.checker}"
+    return f"[FAILED] {result.checker}:\n{result.diagnostics}"
 
 
 def _try_generate(call: Callable[[], ScriptArtifact], stderr: IO[str]) -> ScriptArtifact | None:

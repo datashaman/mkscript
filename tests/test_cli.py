@@ -186,6 +186,27 @@ def test_multiple_blocks_exit_nonzero():
     assert "could not parse" in str(exc.value)
 
 
+# A reply whose script fails py_compile, and one whose language has no checker.
+INVALID_PY = '{"language": "python", "filename": "x.py"}\n```python\ndef f(:\n```'
+NO_CHECKER = '{"language": "ruby", "filename": "x.rb"}\n```ruby\nputs 1\n```'
+
+
+def test_invalid_script_is_not_emitted_and_failure_surfaced():
+    out, err = io.StringIO(), io.StringIO()
+    with pytest.raises(SystemExit) as exc:
+        main(["task"], backend=StubBackend(INVALID_PY), stdout=out, stderr=err)
+    assert "failed its py_compile check" in str(exc.value)
+    assert out.getvalue() == ""  # the failing script is not emitted
+    assert "def f(:" in err.getvalue()  # rejected script surfaced, not lost
+
+
+def test_unsupported_language_emits_without_a_gate():
+    out = io.StringIO()
+    rc = main(["task"], backend=StubBackend(NO_CHECKER), stdout=out)
+    assert rc == 0
+    assert "puts 1" in out.getvalue()  # no checker for ruby → best-effort emit
+
+
 def test_parse_failure_surfaces_into_refine_loop_not_exit():
     # Under --refine the loop owns generation, so a bad reply must reach the loop
     # (where WI-018 will catch it) instead of exiting from main().
