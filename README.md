@@ -42,7 +42,9 @@ that config file.
 
 ## Stack
 
-Python, distributed as a single-file tool (PEP 723) run via [uv](https://docs.astral.sh/uv/).
+Python, packaged under `src/mkscript/` and run via [uv](https://docs.astral.sh/uv/)
+(`uv tool install`). Note: the *single-file* constraint applies to the scripts
+mkscript **generates**, not to mkscript's own source.
 
 ## License
 
