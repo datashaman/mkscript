@@ -3,6 +3,7 @@ import platform
 
 import pytest
 
+from mkscript import cli
 from mkscript.backend import StubBackend
 from mkscript.cli import main
 
@@ -150,3 +151,30 @@ def test_with_refine_enters_loop_with_request_and_backend():
     )
     assert called["req"].definition == "task"
     assert called["backend"] is backend
+
+
+def test_model_flag_reaches_resolve_backend(monkeypatch):
+    # No injected backend, so main() goes through the resolution seam; capture
+    # the flag there instead of touching real config/credentials.
+    seen = {}
+
+    def capture(model_flag=None):
+        seen["model"] = model_flag
+        return StubBackend(REPLY)
+
+    monkeypatch.setattr(cli, "resolve_backend", capture)
+    main(["task", "--model", "openai:gpt-4o"], stdout=io.StringIO())
+    assert seen["model"] == "openai:gpt-4o"
+
+
+def test_missing_credential_aborts_before_refine_loop(monkeypatch):
+    # resolve_backend (the credential gate) runs before dispatch, so an
+    # unconfigured run exits without ever entering the refine loop.
+    def boom(model_flag=None):
+        raise SystemExit("no API credential found")
+
+    monkeypatch.setattr(cli, "resolve_backend", boom)
+    loop_ran = {"yes": False}
+    with pytest.raises(SystemExit, match="no API credential"):
+        main(["task", "--refine"], refine_loop=lambda req, be: loop_ran.__setitem__("yes", True))
+    assert loop_ran["yes"] is False
