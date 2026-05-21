@@ -23,6 +23,9 @@ classifiers = [
 # install to the providers we ship. CLI (WI-020) and config (WI-021) add theirs.
 dependencies = ["pydantic-ai-slim[anthropic,openai]>=1.0"]
 
+[project.scripts]
+mkscript = "mkscript.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/datashaman/mkscript"
 Repository = "https://github.com/datashaman/mkscript"
