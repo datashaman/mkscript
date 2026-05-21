@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .cli import main
 from .contract import GenerationRequest, ScriptArtifact, build_prompt
 from .parser import (
     AmbiguousOutputError,
@@ -18,6 +19,7 @@ __all__ = [
     "ScriptArtifact",
     "build_prompt",
     "generate",
+    "main",
     "parse_output",
     "OutputError",
     "NoScriptError",
