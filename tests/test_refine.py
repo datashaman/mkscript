@@ -132,6 +132,30 @@ def test_main_wires_session_and_routes_emit_to_stdout():
     assert "refine, :accept, or :quit" in err.getvalue()  # prompts went to stderr
 
 
+def test_accept_refused_on_failing_script_until_override():
+    session, _backend, stderr, emitted = _session(
+        [_reply("def f(:")],  # invalid python — fails py_compile
+        [":accept", ":accept!"],
+    )
+    _default_refine_loop(session)
+    assert len(emitted) == 1  # only the explicit :accept! override emits
+    out = stderr.getvalue()
+    assert "fails its py_compile check" in out  # plain :accept was refused
+    assert "WARNING" in out  # :accept! emitted with a loud warning
+    assert "[FAILED] py_compile" in out  # validation status shown each round
+
+
+def test_refine_fixes_invalid_script_then_accept_emits():
+    session, _backend, stderr, emitted = _session(
+        [_reply("def f(:"), _reply("def f():\n    pass")],
+        ["fix the syntax error", ":accept"],
+    )
+    _default_refine_loop(session)
+    assert len(emitted) == 1
+    assert emitted[0].source == "def f():\n    pass"  # the now-valid script is emitted
+    assert "[ok] passed py_compile" in stderr.getvalue()
+
+
 def test_main_refine_routes_accepted_script_to_out_file(tmp_path):
     dest = tmp_path / "build.py"
     backend = ScriptedBackend([_reply("print('hi')")])
