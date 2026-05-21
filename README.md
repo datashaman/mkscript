@@ -21,7 +21,9 @@ to produce **exactly one self-contained script** and emits it. mkscript does
 - **Validated before emit.** Where a syntax check exists for the chosen language
   (e.g. `bash -n`, `py_compile`), a script that fails it is not silently emitted.
 - **Swappable backend.** Generation sits behind a thin, vendor-neutral interface;
-  one backend ships.
+  the one shipped backend uses [Pydantic-AI](https://ai.pydantic.dev/)
+  (`pydantic-ai-slim[anthropic,openai]`), so you bring your own provider key and
+  pick a model like `anthropic:claude-sonnet-4-6` or `openai:gpt-4o`.
 
 ## Intended CLI
 
