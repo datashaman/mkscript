@@ -1,0 +1,73 @@
+# Release — publish to PyPI when a GitHub Release is published.
+#
+# Trusted publishing (OIDC, no stored token) is configured on PyPI for this
+# repo with workflow filename "release.yml" and environment "pypi"; keep both in
+# sync with that publisher or the publish step will be rejected.
+#
+# The same release:published event also drives growth-sync.yml, which records
+# the release in Growth (upsert-release) — so cutting a Release both ships to
+# PyPI and updates Growth.
+#
+# To release: bump `version` in pyproject.toml, merge, then publish a GitHub
+# Release whose tag is `vX.Y.Z` matching that version.
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  # Never publish a red build, and never publish a tag that disagrees with the
+  # packaged version (PyPI would reject a duplicate, or you'd ship a mislabelled
+  # release).
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Lint
+        run: uv run ruff check src tests
+      - name: Test
+        run: uv run pytest -q
+      - name: Tag matches package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(uv version --short)"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::release tag '${GITHUB_REF_NAME}' does not match pyproject version '${pkg}'"
+            exit 1
+          fi
+          echo "tag and package version agree: ${pkg}"
+
+  build:
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Build sdist + wheel
+        run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # required for trusted publishing (OIDC)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
