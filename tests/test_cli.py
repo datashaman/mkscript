@@ -57,7 +57,7 @@ def test_lang_and_platform_flow_into_request():
     main(
         ["task", "--lang", "python", "--platform", "linux", "--refine"],
         backend=StubBackend(REPLY),
-        refine_loop=lambda req, be: seen.setdefault("req", req),
+        refine_loop=lambda s: seen.setdefault("req", s.request),
     )
     assert seen["req"].language_hint == "python"
     assert seen["req"].platform == "linux"
@@ -68,7 +68,7 @@ def test_platform_defaults_to_host_os_when_omitted():
     main(
         ["task", "--refine"],
         backend=StubBackend(REPLY),
-        refine_loop=lambda req, be: seen.setdefault("req", req),
+        refine_loop=lambda s: seen.setdefault("req", s.request),
     )
     assert seen["req"].platform == platform.system().lower()
 
@@ -78,7 +78,7 @@ def test_context_string_populates_request():
     main(
         ["task", "--context", "input is a CSV", "--refine"],
         backend=StubBackend(REPLY),
-        refine_loop=lambda req, be: seen.setdefault("req", req),
+        refine_loop=lambda s: seen.setdefault("req", s.request),
     )
     assert seen["req"].context == "input is a CSV"
 
@@ -90,7 +90,7 @@ def test_context_file_populates_request(tmp_path):
     main(
         ["task", "--context-file", str(ctx), "--refine"],
         backend=StubBackend(REPLY),
-        refine_loop=lambda req, be: seen.setdefault("req", req),
+        refine_loop=lambda s: seen.setdefault("req", s.request),
     )
     assert "a,b,c" in seen["req"].context
 
@@ -109,7 +109,7 @@ def test_neither_context_is_valid():
     main(
         ["task", "--refine"],
         backend=StubBackend(REPLY),
-        refine_loop=lambda req, be: seen.setdefault("req", req),
+        refine_loop=lambda s: seen.setdefault("req", s.request),
     )
     assert seen["req"].context is None
 
@@ -135,7 +135,7 @@ def test_without_refine_runs_single_shot_not_loop():
         ["task"],
         backend=StubBackend(REPLY),
         stdout=out,
-        refine_loop=lambda req, be: called.__setitem__("loop", True),
+        refine_loop=lambda s: called.__setitem__("loop", True),
     )
     assert called["loop"] is False
     assert 'print("hi")' in out.getvalue()
@@ -147,7 +147,7 @@ def test_with_refine_enters_loop_with_request_and_backend():
     main(
         ["task", "--refine"],
         backend=backend,
-        refine_loop=lambda req, be: called.update(req=req, backend=be),
+        refine_loop=lambda s: called.update(req=s.request, backend=s.backend),
     )
     assert called["req"].definition == "task"
     assert called["backend"] is backend
@@ -193,7 +193,7 @@ def test_parse_failure_surfaces_into_refine_loop_not_exit():
     main(
         ["task", "--refine"],
         backend=StubBackend(REFUSAL),
-        refine_loop=lambda req, be: reached.update(req=req, backend=be),
+        refine_loop=lambda s: reached.update(req=s.request, backend=s.backend),
     )
     assert reached["req"].definition == "task"
 

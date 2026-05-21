@@ -38,6 +38,11 @@ mkscript "..." --context-file sample.csv  # optional context (sample data / form
 mkscript "..." --refine                 # interactive, bounded refine loop
 ```
 
+With `--refine`, mkscript shows each candidate script and prompts on stderr (so
+stdout stays clean for the final file). Type a natural-language change to revise
+it, `:accept` to emit the current script, or `:quit` (or a blank line) to exit
+without emitting. The loop is bounded by a maximum number of rounds.
+
 Configuration resolves by precedence. The **provider/model** is taken from the
 `--model` flag → `MKSCRIPT_MODEL` → a `model` key in the config file → a built-in
 default. The **API credential** is taken from `MKSCRIPT_API_KEY` → an `api_key`
