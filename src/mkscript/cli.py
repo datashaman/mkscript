@@ -19,6 +19,7 @@ from typing import IO
 from .backend import Backend, PydanticAIBackend
 from .config import resolve_config
 from .contract import GenerationRequest, ScriptArtifact
+from .parser import OutputError
 from .pipeline import generate
 
 # The seam for WI-018's bounded interactive refine loop. The CLI dispatches here
@@ -156,13 +157,30 @@ def main(
         backend = resolve_backend(args.model)
 
     if args.refine:
+        # The refine loop owns its own generate calls, so OutputErrors surface
+        # into the loop (WI-018) rather than exiting here.
         loop = refine_loop if refine_loop is not None else _default_refine_loop
         loop(request, backend)
         return 0
 
-    artifact = generate(request, backend)
+    try:
+        artifact = generate(request, backend)
+    except OutputError as exc:
+        raise SystemExit(_format_output_error(exc))
     _emit(artifact, args.out, stdout)
     return 0
+
+
+def _format_output_error(exc: OutputError) -> str:
+    """Compose the non-zero-exit message for an unusable reply, showing the reply.
+
+    The model's verbatim reply is fenced by labeled delimiters so a refusal or
+    stray prose is clearly the model's text, not mkscript's own error output.
+    """
+    message = f"could not parse the model's reply: {exc}"
+    if not exc.raw:
+        return message
+    return f"{message}\n--- model reply ---\n{exc.raw}\n--- end reply ---"
 
 
 def _default_refine_loop(request: GenerationRequest, backend: Backend) -> None:

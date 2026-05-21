@@ -167,6 +167,37 @@ def test_model_flag_reaches_resolve_backend(monkeypatch):
     assert seen["model"] == "openai:gpt-4o"
 
 
+# A reply that is a refusal (no fenced block) and one with two blocks.
+REFUSAL = "I'm sorry, I can't help with that request."
+TWO_BLOCKS = "```python\nprint(1)\n```\nand\n```python\nprint(2)\n```"
+
+
+def test_refusal_exits_nonzero_and_shows_reply():
+    with pytest.raises(SystemExit) as exc:
+        main(["task"], backend=StubBackend(REFUSAL), stdout=io.StringIO())
+    message = str(exc.value)
+    assert "could not parse" in message
+    assert REFUSAL in message  # the model's reply is shown to the user
+
+
+def test_multiple_blocks_exit_nonzero():
+    with pytest.raises(SystemExit) as exc:
+        main(["task"], backend=StubBackend(TWO_BLOCKS), stdout=io.StringIO())
+    assert "could not parse" in str(exc.value)
+
+
+def test_parse_failure_surfaces_into_refine_loop_not_exit():
+    # Under --refine the loop owns generation, so a bad reply must reach the loop
+    # (where WI-018 will catch it) instead of exiting from main().
+    reached = {}
+    main(
+        ["task", "--refine"],
+        backend=StubBackend(REFUSAL),
+        refine_loop=lambda req, be: reached.update(req=req, backend=be),
+    )
+    assert reached["req"].definition == "task"
+
+
 def test_missing_credential_aborts_before_refine_loop(monkeypatch):
     # resolve_backend (the credential gate) runs before dispatch, so an
     # unconfigured run exits without ever entering the refine loop.
