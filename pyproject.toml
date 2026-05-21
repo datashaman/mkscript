@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mkscript"
+version = "0.0.1"
+description = "Compile one-off task descriptions into single, self-contained, runnable scripts using AI"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Marlin Forbes", email = "marlinf@datashaman.com" }]
+keywords = ["cli", "automation", "scripts", "llm", "codegen"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Utilities",
+]
+# Core (WI-001) is stdlib-only. The provider backend (WI-003), CLI (WI-020),
+# and config (WI-021) will add their own dependencies.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/datashaman/mkscript"
+Repository = "https://github.com/datashaman/mkscript"
+Issues = "https://github.com/datashaman/mkscript/issues"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mkscript"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
