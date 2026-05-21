@@ -45,9 +45,19 @@ Respond with two parts, in order:
 
 Rules:
 - Produce exactly one fenced code block — the script — and nothing else fenced.
-- The script must be a single self-contained file: no companion files, with any
-  dependencies declared inline using the language's idiom (e.g. PEP 723 metadata
-  for Python; only standard builtins for bash).
+- The script must be a single self-contained file: no companion files, and no
+  reliance on a separate install step. Any dependency outside the language's
+  standard library MUST be declared inline using the language's idiom so the file
+  runs as-is. For Python this means a PEP 723 inline-metadata block listing every
+  non-stdlib import, e.g.:
+
+      # /// script
+      # dependencies = ["requests", "pandas"]
+      # ///
+
+  For bash, use only standard builtins and tools you can assume are present. If a
+  language has no inline-dependency idiom, restrict yourself to its standard
+  library.
 - You choose the language; make it appropriate to the task and target platform.
 - Any explanation outside the JSON and the code block is fine; it is shown but
   not saved.
