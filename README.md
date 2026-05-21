@@ -65,6 +65,32 @@ model = "anthropic:claude-sonnet-4-6"
 api_key = "sk-..."
 ```
 
+### OpenAI-compatible providers (DeepSeek, OpenRouter, …)
+
+Beyond the two shipped providers, any backend Pydantic-AI reaches through the
+OpenAI client works with **no extra install** — the `[openai]` extra already
+covers them. DeepSeek and OpenRouter are the common cases:
+
+```
+mkscript "..." --model deepseek:deepseek-chat        # needs DEEPSEEK_API_KEY
+mkscript "..." --model openrouter:meta-llama/llama-3.1-8b-instruct  # needs OPENROUTER_API_KEY
+```
+
+These resolve **only via the provider's native key variable** (`DEEPSEEK_API_KEY`,
+`OPENROUTER_API_KEY`), which Pydantic-AI reads itself — `MKSCRIPT_API_KEY` and the
+config-file `api_key` are honoured only for `anthropic` and `openai`.
+
+Alternatively, point the OpenAI provider at any OpenAI-compatible endpoint by
+setting `OPENAI_BASE_URL` and using an `openai:` model id:
+
+```
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+mkscript "..." --model openai:meta-llama/llama-3.1-8b-instruct   # uses OPENAI_API_KEY
+```
+
+Providers with their own wire format (Groq, Cohere, Mistral, Bedrock, Google)
+are *not* included; each needs its own Pydantic-AI extra installed.
+
 ## Stack
 
 Python, packaged under `src/mkscript/` and run via [uv](https://docs.astral.sh/uv/)
