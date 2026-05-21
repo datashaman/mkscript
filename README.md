@@ -2,9 +2,10 @@
 
 Compile a one-off task description into a single, self-contained, runnable script — using AI.
 
-> **Status:** early / specification stage. The design is modeled in the growth MCP
-> service (requirements, milestones, work items, verification, architecture); code
-> has not landed yet. This README describes the intended v1.
+> **Status:** early (v0.0.1, pre-alpha). The core pipeline has landed — CLI,
+> swappable backend, config/credential resolution, output parsing, pre-emit
+> syntax checking, and the bounded interactive refine loop — and is covered by
+> tests. Interfaces may still change.
 
 ## What it does (one thing)
 
@@ -25,7 +26,7 @@ to produce **exactly one self-contained script** and emits it. mkscript does
   (`pydantic-ai-slim[anthropic,openai]`), so you bring your own provider key and
   pick a model like `anthropic:claude-sonnet-4-6` or `openai:gpt-4o`.
 
-## Intended CLI
+## CLI
 
 ```
 mkscript "describe the task"            # script printed to stdout
@@ -34,9 +35,12 @@ echo "describe the task" | mkscript     # definition from stdin
 mkscript "..." --model openai:gpt-4o    # pick the provider:model
 mkscript "..." --lang python            # preferred-language hint
 mkscript "..." --platform linux         # target platform (defaults to host OS)
-mkscript "..." --context-file sample.csv  # optional context (sample data / format)
+mkscript "..." --context "id,name"        # optional context inline (sample data / format)
+mkscript "..." --context-file sample.csv  # optional context from a file
 mkscript "..." --refine                 # interactive, bounded refine loop
 ```
+
+`--context` and `--context-file` are mutually exclusive.
 
 Before emitting, mkscript runs a language-appropriate syntax check where one
 exists (`py_compile` for Python, `bash -n` for shell); a script that fails is
