@@ -130,3 +130,19 @@ def test_main_wires_session_and_routes_emit_to_stdout():
     assert rc == 0
     assert "print('hi')" in out.getvalue()  # accepted script routed to stdout
     assert "refine, :accept, or :quit" in err.getvalue()  # prompts went to stderr
+
+
+def test_main_refine_routes_accepted_script_to_out_file(tmp_path):
+    dest = tmp_path / "build.py"
+    backend = ScriptedBackend([_reply("print('hi')")])
+    out, err = io.StringIO(), io.StringIO()
+    rc = main(
+        ["say hi", "--refine", "--out", str(dest)],
+        backend=backend,
+        stdin=io.StringIO(":accept\n"),
+        stdout=out,
+        stderr=err,
+    )
+    assert rc == 0
+    assert "print('hi')" in dest.read_text()  # accepted script routed to --out
+    assert out.getvalue() == ""  # nothing leaks to stdout when --out is given

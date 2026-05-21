@@ -108,7 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--refine",
         action="store_true",
-        help="enter the bounded interactive refine loop after generation",
+        help="enter the bounded interactive refine loop (revise the script in a session)",
     )
     return parser
 
